@@ -5,12 +5,12 @@ import {
   AlertCircle,
   Users,
   ArrowUpRight,
+  CheckCircle2,
+  Clock,
   ChevronRight,
   Scale,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   mockDossiers,
   mockClients,
@@ -32,20 +32,6 @@ const factureStatut: Record<
   envoyee: { label: "Envoyée", couleur: "text-amber-600 dark:text-amber-400" },
   en_retard: { label: "En retard", couleur: "text-red-600 dark:text-red-400" },
   brouillon: { label: "Brouillon", couleur: "text-muted-foreground" },
-};
-
-const statutBadgeClass: Record<string, string> = {
-  en_cours: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400",
-  en_attente: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400",
-  cloture: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400",
-};
-
-const typeDossierLabels: Record<string, string> = {
-  civil: "Civil",
-  penal: "Pénal",
-  commercial: "Commercial",
-  famille: "Famille",
-  administratif: "Administratif",
 };
 
 function dateLocale() {
@@ -118,6 +104,9 @@ export default function PageTableauDeBord() {
   const allAudiences = mockDossiers.flatMap((d) => d.audiences);
   const allFactures = mockDossiers.flatMap((d) => d.factures);
 
+  const dossiersActifs = mockDossiers.filter(
+    (d) => d.statut === "en_cours" || d.statut === "en_attente"
+  ).length;
   const dossiersEnCours = mockDossiers.filter(
     (d) => d.statut === "en_cours"
   ).length;
@@ -142,17 +131,13 @@ export default function PageTableauDeBord() {
     .filter((f) => f.statut === "payee")
     .reduce((s, f) => s + f.totalTTC, 0);
 
-  const dossiersRecents5 = [...mockDossiers]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 5);
-
-  const audiencesAujourdHui = mockDossiers.flatMap((d) =>
-    d.audiences
-      .filter((a) => a.date === today)
-      .map((a) => ({ audience: a, dossier: d }))
-  );
-
+  const dossiersRecents = mockDossiers.slice(0, 5);
+  const prochainAudiences = allAudiences
+    .filter((a) => a.statut === "programmee" && a.date >= today)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 3);
   const facturesRecentes = allFactures.slice(0, 4);
+  const prochainAudience = prochainAudiences[0];
 
   const kpis = [
     {
@@ -227,20 +212,25 @@ export default function PageTableauDeBord() {
       </div>
 
       {/* ─── Contenu principal ─────────────────────────────────────────────────── */}
-      <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-3">
 
         {/* Dossiers récents */}
-        <Card
-          className="animate-slide-up gap-0 py-0"
+        <div
+          className="animate-slide-up lg:col-span-2 rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden"
           style={{ animationDelay: "0.25s" }}
         >
-          <CardHeader className="border-b border-border/40 flex-row items-center justify-between">
-            <CardTitle
-              className="text-base font-semibold"
-              style={{ fontFamily: "var(--font-cormorant), Georgia, serif" }}
-            >
-              Dossiers récents
-            </CardTitle>
+          <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border/40">
+            <div>
+              <h2
+                className="text-lg font-semibold"
+                style={{ fontFamily: "var(--font-cormorant), Georgia, serif" }}
+              >
+                Dossiers récents
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {dossiersActifs} affaires actives
+              </p>
+            </div>
             <Link
               href="/dossiers"
               className="flex items-center gap-1 text-xs font-medium text-primary hover:opacity-70 transition-opacity"
@@ -248,89 +238,171 @@ export default function PageTableauDeBord() {
               Voir tout
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
-          </CardHeader>
-          <CardContent className="p-0 divide-y divide-border/40">
-            {dossiersRecents5.map((dossier, i) => (
-              <Link
-                key={dossier.id}
-                href={`/dossiers/${dossier.id}`}
-                className="animate-slide-right group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors"
-                style={{ animationDelay: `${0.28 + i * 0.06}s` }}
-              >
-                <Badge className={statutBadgeClass[dossier.statut]}>
-                  {statutDossier[dossier.statut]?.label}
-                </Badge>
-                <span className="min-w-0 flex-1 text-sm truncate">
-                  {dossier.client.prenom
-                    ? `${dossier.client.prenom} ${dossier.client.nom}`
-                    : dossier.client.nom}
-                </span>
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {typeDossierLabels[dossier.type]}
-                </span>
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Audiences aujourd'hui */}
-        <Card
-          className="animate-slide-up gap-0 py-0"
-          style={{ animationDelay: "0.3s" }}
-        >
-          <CardHeader className="border-b border-border/40 flex-row items-center justify-between">
-            <CardTitle
-              className="text-base font-semibold"
-              style={{ fontFamily: "var(--font-cormorant), Georgia, serif" }}
-            >
-              Audiences aujourd&apos;hui
-            </CardTitle>
-            <Link
-              href="/calendrier"
-              className="flex items-center gap-1 text-xs font-medium text-primary hover:opacity-70 transition-opacity"
-            >
-              Calendrier
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            {audiencesAujourdHui.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                Aucune audience aujourd&apos;hui
-              </p>
-            ) : (
-              <div className="divide-y divide-border/40">
-                {audiencesAujourdHui.map(({ audience, dossier }, i) => (
-                  <Link
-                    key={audience.id}
-                    href={`/dossiers/${dossier.id}`}
-                    className="animate-slide-right group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition-colors"
-                    style={{ animationDelay: `${0.33 + i * 0.05}s` }}
-                  >
-                    <span
-                      className="shrink-0 w-12 text-sm font-semibold text-primary"
-                      style={{ fontFamily: "var(--font-dm-mono), monospace" }}
-                    >
-                      {audience.heure}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                        {dossier.numero}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {audience.tribunal} · {dossier.client.prenom
+          <div className="divide-y divide-border/40">
+            {dossiersRecents.map((dossier, i) => {
+              const cfg = statutDossier[dossier.statut] ?? statutDossier.en_cours;
+
+              return (
+                <Link
+                  key={dossier.id}
+                  href={`/dossiers/${dossier.id}`}
+                  className="animate-slide-right group flex items-center gap-4 px-5 py-3.5 hover:bg-muted/40 transition-colors"
+                  style={{ animationDelay: `${0.28 + i * 0.06}s` }}
+                >
+                  <div className="flex-shrink-0">
+                    {dossier.statut === "cloture" ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-snug truncate group-hover:text-primary transition-colors">
+                      {dossier.description.split(".")[0]}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {dossier.numero}
+                      {" · "}
+                      <span>
+                        {dossier.client.prenom
                           ? `${dossier.client.prenom} ${dossier.client.nom}`
                           : dossier.client.nom}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="flex-shrink-0 flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                    <span className="text-xs text-muted-foreground hidden sm:block">
+                      {cfg.label}
+                    </span>
+                  </div>
+
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors flex-shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Prochaine audience */}
+        <div
+          className="animate-slide-up flex flex-col gap-4"
+          style={{ animationDelay: "0.3s" }}
+        >
+          {prochainAudience && (
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.03] dark:bg-primary/5 overflow-hidden shadow-sm">
+              <div className="px-5 pt-5 pb-4 border-b border-primary/10">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-primary/70">
+                    Prochaine audience
+                  </p>
+                  <Link
+                    href="/calendrier"
+                    className="text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Calendrier →
+                  </Link>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 rounded-lg bg-primary/10 px-3 py-2 text-center">
+                    <p className="text-xs font-medium text-primary/70 uppercase tracking-wide leading-none">
+                      {new Date(prochainAudience.date).toLocaleDateString("fr-FR", { month: "short" })}
+                    </p>
+                    <p
+                      className="text-2xl font-semibold text-primary leading-tight mt-0.5"
+                      style={{ fontFamily: "var(--font-dm-mono), monospace" }}
+                    >
+                      {new Date(prochainAudience.date).getDate()}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-snug">
+                      {prochainAudience.type === "audience"
+                        ? "Audience"
+                        : prochainAudience.type === "delibere"
+                        ? "Délibéré"
+                        : "Prononcé"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {prochainAudience.heure}
+                    </p>
+                    {prochainAudience.salle && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                        {prochainAudience.salle}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-5 py-3 bg-primary/[0.02]">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {prochainAudience.tribunal}
+                </p>
+                {prochainAudience.notes && (
+                  <p className="text-xs text-primary/60 mt-1.5 italic">
+                    {prochainAudience.notes}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Audiences suivantes */}
+          <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
+            <div className="px-5 pt-4 pb-3 border-b border-border/40">
+              <h2
+                className="text-base font-semibold"
+                style={{ fontFamily: "var(--font-cormorant), Georgia, serif" }}
+              >
+                À venir
+              </h2>
+            </div>
+            <div className="divide-y divide-border/40">
+              {prochainAudiences.slice(1).map((audience, i) => {
+                const dossier = mockDossiers.find((d) =>
+                  d.audiences.some((a) => a.id === audience.id)
+                );
+                return (
+                  <div
+                    key={audience.id}
+                    className="animate-slide-up flex items-start gap-3 px-5 py-3"
+                    style={{ animationDelay: `${0.35 + i * 0.07}s` }}
+                  >
+                    <div className="flex-shrink-0 mt-0.5 w-8 text-center">
+                      <p
+                        className="text-sm font-semibold text-primary leading-none"
+                        style={{ fontFamily: "var(--font-dm-mono), monospace" }}
+                      >
+                        {new Date(audience.date).getDate()}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase mt-0.5">
+                        {new Date(audience.date).toLocaleDateString("fr-FR", { month: "short" })}
                       </p>
                     </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium leading-snug truncate">
+                        {audience.type === "audience"
+                          ? "Audience"
+                          : audience.type === "delibere"
+                          ? "Délibéré"
+                          : "Prononcé"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {audience.heure} · {dossier?.numero}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ─── Facturation récente ────────────────────────────────────────────────── */}
